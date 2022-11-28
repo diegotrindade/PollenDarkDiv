@@ -1,0 +1,240 @@
+---
+title: "Comparing raw and andersen-transformed pollen data"
+author: "Diego Trindade"
+date: "20 9 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	cache.lazy = FALSE,
+	options(scipen=999)
+)
+```
+
+```{r packages}
+library(tidyverse)
+library(cowplot)
+library(here)
+library(DarkDiv)
+
+```
+
+```{r taxon}
+
+
+source(here("functions", "annotations.R")) 
+
+# Pollen data
+pollen <- read_delim(here("data", "pollen_df.csv")) %>% 
+  dplyr::select(-Chamaepericlymenum_suecicum, -Ledum, -Sagina)
+
+pollen_raw <- read_delim(here("data", "pollen_raw.csv")) 
+
+
+#function to create the time_window labels
+lettersExp <- c(letters, sapply(letters, function(x) paste0(x, letters)))
+
+
+list_pollen <- list(pollenyears,pollen_raw)
+# adding 500 years intervals
+
+pollenyears <- list_pollen %>%
+  map(~.x %>% 
+  
+  dplyr::group_by(K_ID)%>%
+  
+  #creating the 500 y intervals
+  mutate(time_window = cut(ybp, breaks=seq(-50,14450,by=500), 
+                           include.lowest = T,
+                           labels= lettersExp[1:29])) %>% 
+  
+  dplyr::select(K_ID, ybp,time_window, Acer:Viscum) %>% ungroup %>% arrange(desc(ybp))
+)
+
+# Combining transformed and raw pollen into a list
+
+# excluding some taxa from the LG period following Reitalu et al. 2015
+
+exc_sp_LG <- c("Corylus", "Tilia", "Quercus", "Ulmus", "Fraxinus", "Carpinus","Alnus")
+
+occurrence <- pollenyears %>% map(~.x %>%  ungroup %>%
+                                    
+                                    #Excluding species like in Reitalu et al. 2015
+                                    
+                                     mutate(Alnus = case_when(Alnus > 0 & ybp > 11650 ~ 0,
+                                 T ~ Alnus),
+                                 Corylus = case_when(Corylus > 0 & ybp > 11650 ~ 0,
+                                                     T ~ Corylus),
+                                 Tilia = case_when(Tilia > 0 & ybp > 11650 ~ 0,
+                                                     T ~ Tilia),
+                                 Quercus = case_when(Quercus > 0 & ybp > 11650 ~ 0,
+                                                   T ~ Quercus),
+                                 Ulmus = case_when(Ulmus > 0 & ybp > 11650 ~ 0,
+                                                     T ~ Ulmus),
+                                 Fraxinus = case_when(Fraxinus > 0 & ybp > 11650 ~ 0,
+                                                   T ~ Fraxinus),
+                                 Carpinus = case_when(Carpinus > 0 & ybp > 11650 ~ 0,
+                                                   T ~ Carpinus))# %>% 
+)
+                           
+
+# selecting Sites' ID (K_ID), year and period to bind them again afterwards
+
+sel_col <- occurrence %>% map(~.x %>% 
+   select(K_ID:time_window)
+)
+
+
+```
+
+```{r darkdiv}
+# Estimating dark diversity using the DarkDiv function
+
+
+
+hyperg <- occurrence %>% map(~.x %>% ungroup %>% 
+                         select(-K_ID, -ybp,-time_window) %>% 
+                         DarkDiv(method = "Hypergeometric", removeAbsent = T)
+)
+
+# Creating the observed diversity dataframe
+
+obs <- occurrence %>% 
+   map(~.x %>% ungroup %>%
+  mutate(across(.cols = -c(K_ID:time_window  ), 
+                ~case_when(. > 0~ 1, 
+                           T ~ 0))) %>% 
+  pivot_longer(-c(K_ID:time_window), names_to = "sp", values_to = "obs")
+)
+# Creating the dark diversity data frame
+
+dd <- hyperg %>% 
+   modify_depth(., 1, "Dark") %>% 
+  map(~ .x %>%
+        as_tibble %>%  
+        dplyr::mutate_all(~replace_na(., 0)) %>% 
+        dplyr::mutate(div = "dark", .before = 1) %>% 
+  
+  #Filtering dark diversity taxa (>90% probability)
+  mutate(across(.cols = -c(div), ~case_when(. > .90~ 1, 
+                           T ~ 0)))) %>% 
+   map2(., sel_col, bind_cols) %>% map(~.x %>% 
+  
+  relocate( "K_ID", "ybp", "time_window")%>%
+  select(-div) %>% 
+  pivot_longer(-c(K_ID:time_window), names_to = "sp", values_to = "dark") %>% 
+    select(dark)
+)
+# Creating the species pool size data frame
+# combining pool, dark and observed lists
+
+
+pool <- hyperg %>% 
+  map(~.x %>%
+        pluck("Pool") %>% 
+        as_tibble %>%
+        mutate_all(~replace_na(., 0)) %>% 
+        mutate(div = "pool", .before = 1) %>%
+  mutate(across(.cols = -c(div), 
+                ~case_when(. > .90~ 1, 
+                           T ~ 0)))) %>% 
+  map2(., sel_col, bind_cols) %>% map(~.x %>% 
+  
+  relocate( "K_ID", "ybp", "time_window") %>%
+  select(-div) %>% 
+  pivot_longer(-c(K_ID:time_window), names_to = "sp", values_to = "pool") %>% 
+  select(pool)
+
+)
+```
+
+```{r comball}
+
+# Combining observed diversity, dark diversity and species pool size data frames
+
+comb_obs_dd <- obs %>% 
+  map2(., dd,  bind_cols) %>% 
+  map2(., pool,  bind_cols) %>% 
+  map(~.x %>% 
+  group_by(sp,time_window) %>% 
+  arrange(desc(ybp)) %>% 
+  
+  # Allowing taxa in dark diversity only if they appeared in observed diversity during 500 years time-window.
+  
+  
+  mutate(dark = case_when(cumsum(obs == 1 & pool == 1) == 0 ~ 0,
+                            T~dark),
+         pool = case_when(cumsum(obs == 1 & pool == 1) == 0 ~ 0,
+                            T~pool)) %>% 
+  
+  mutate(sp = str_replace(sp, "_t", ""))
+  )
+
+# Data frame with taxonomic dark, observed, species pool size and community completeness
+
+taxonomic_df <- comb_obs_dd %>% 
+  map(~.x %>% 
+  group_by(K_ID, ybp) %>%
+  summarize(dark = sum(dark), obs=sum(obs), pool = obs+dark) %>% 
+    mutate(comp = log(obs/dark))
+  
+  )
+
+names(taxonomic_df) <- c("pollen_transformed", "pollen_raw")
+
+```
+
+```{r plots}
+
+# png("obs_dd_comparison.png", units="in", width = 10, height = 8, res=300)
+# par(mfrow=c(1,2))
+# plot(taxonomic_df[[1]]$obs,taxonomic_df[[2]]$obs, ylab = "Observed diversity size - Andersen transformed", xlab = "Observed diversity size - raw data",abline(0,1))
+# plot(taxonomic_df[[1]]$dark,taxonomic_df[[2]]$dark, ylab = "Dark diversity size - Andersen transformed", xlab = "Dark diversity size - raw data",abline(0,1)) 
+# dev.off()
+
+taxonomic_plot <- taxonomic_df %>% 
+  map(~.x %>%
+        
+  select(-comp) %>% pivot_longer(-c(ybp,K_ID), names_to = "div", values_to = "values") %>% 
+  mutate(div = fct_relevel(div,c("pool", "obs","dark")))) %>% 
+  
+  imap(., ~mutate(.x, data_type = .y, .before = K_ID)) %>%  
+  reduce(bind_rows) %>% 
+  group_by(data_type) %>% 
+  nest() %>% 
+  mutate(plot.dd = map2(data, data_type, ~ 
+                          ggplot(data = .x,  aes(x=ybp,y=values, color=div, fill=div)) +
+  
+geom_point(alpha=.09)+
+  scale_color_manual(name = "",labels = c("Species pool size","Observed diversity","Dark diversity"),values = c("#A9A9A9","#E69F00", "#56B4E9"))+
+  scale_fill_manual(name = "",labels = c("Species pool size","Observed diversity","Dark diversity"),values = c("#A9A9A9","#E69F00", "#56B4E9"))+
+  guides(colour = guide_legend(override.aes = list(alpha = .5)))+
+  geom_vline(xintercept = vlines, colour = "grey", size=.5)+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs="cr"), se=T)+
+  scale_x_reverse(limits = c(14500, -50), 
+                  breaks=c(14500, 12000, 10000, 8000, 6000, 4000, 2000, 0))+
+  coord_cartesian(ylim = c(-20,70),
+                  clip = 'off')+
+  scale_y_continuous(breaks=c(0, 20, 40, 60, 80))+
+   theme_cowplot() +
+  
+  labs(y="Number of taxa", x="Calibrated years before present")+
+  theme(legend.position = "none") + 
+  theme_div))
+
+plot_andersen <- taxonomic_plot$plot.dd[[1]] + ggtitle("Pollen diversity patterns - Andersen transformed")
+
+plot_raw <- taxonomic_plot$plot.dd[[2]] + ggtitle("Pollen diversity patterns - Raw data")
+
+fig_andersen_raw <- plot_grid(plot_andersen, plot_raw)
+
+fig_andersen_raw
+#ggsave(here("figures", "fig_pollen_comparison.png"), fig_andersen_raw, height=8, width = 12, dpi=600)
+
+```
+
+

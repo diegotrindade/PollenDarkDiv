@@ -1,0 +1,178 @@
+<!--
+Don't run this .Rmd file. It is used as a child document in "pollen_paper.Rmd" to generate the figures in Supplementary Material.
+
+"pollen_paper.Rmd" is the manuscript written in Rmarkdown - reproducible version.
+
+The code used to generate the figures presented here can be found at "/paper/pollenScript_SupMat.Rmd"
+-->
+
+```{r tempCover, fig.cap="Temporal range cover per site, from 14500 years before present (cal. yr BP) until the present in Northern Europe."}
+
+include_graphics(here("figures","FigSupplement", "tempCover.png"))
+
+```
+
+
+```{r addingTaxa, fig.cap = "Correlation between original dark diversity and dark diversity results after randomly adding a percentage of highly suitable taxa to observed diversity (2%,5%,10%,15%,20%,25%). Even after adding 25% of highly suitable taxa to observed diversity, the correlation between the original dark diveristy size and the one after imputation is still high (95%), suggesting that sampling bias issue is minimal in our dark diversity results. The identity line is drawn on each graph."}
+
+include_graphics(here("figures","FigSupplement","addingTaxa.png"))
+```
+
+
+```{r removingSites, fig.cap = "Correlation between original dark diversity and dark diversity results after removing closest sites (1-6 sites). The correlation between the original dark diveristy size and the dark diversity size after removing six closest sites is still high (98%), suggesting that autocorrelation issue is minimal in our dark diversity results. The identity line is drawn on each graph."}
+
+include_graphics(here("figures","FigSupplement","removing_closerSites.png"))
+```
+
+
+```{r ObsDDFreq, fig.cap="Relative frequency of taxa in observed and dark diversity from 14500 years before present (cal. yr BP) until the present. The relative frequency of taxa was calculated for each 500-year time window using the number of times taxa occupied a site (observed diversity) or were suitable but absent (dark diversity) divided by the number of sites at each time window. Only taxa with more than 30% of frequency either within observed or dark diversity in any time window are shown."}
+
+include_graphics(here("figures", "FigSupplement","freq_taxa.png"))
+```
+
+```{r PCA, fig.cap = "Principal component analysis of the functional spectra of plants in Northern Europe, depicting the first axis represented by Height (hmax), seed weight (sm) and clonality and the second axis represented by specific leaf area (sla) and pollination. The first axis (PC1) explains 45.1% of the total variation and the second axis (PC2) explains 19.3% of the total variation."}
+
+
+
+include_graphics(here("figures","FigSupplement", "fig_pca.png"))
+```
+
+```{r comparison, fig.cap = "Comparison between Andersen transformed and raw pollen data, depicting that the diversity patterns in both datasets are similar. Number of taxa in both observed and dark diversity, as well species pool size of sites in NE Europe over the past 14500 years (cal. yr BP). Lines represent the fits of GAM and shaded areas the 95% confidence intervals."}
+
+include_graphics(here("figures", "FigSupplement", "fig_pollen_comparison.png"))
+```
+
+
+```{r readData, include=FALSE}
+
+#saveRDS(taxonomic_df, file="tax_obsdark.rds")
+#saveRDS(functional_df, file="func_compl.rds")
+#saveRDS(cwm_pca_t, file="mean_traits.rds")
+
+
+taxonomic_df <- readRDS(here("rds", "tax_obsdark.rds"))
+
+functional_df <- readRDS(here("rds", "functional_df.RDS"))
+
+cwm_pca_t <- readRDS(here("rds","mean_traits.rds"))
+
+```
+
+```{r include=FALSE}
+
+source(here("functions", "GAMoutput.R"))
+```
+
+```{r tabS2, echo=FALSE, results="asis"}
+
+model_tax <- taxonomic_df %>% select(-comp) %>% 
+  pivot_longer(-c("K_ID", "ybp"), names_to = "div", values_to = "value") %>%  
+  mutate(div = fct_relevel(div,c("pool", "obs","dark"))) %>% 
+  ungroup() %>%  
+  mutate(div = as.factor(div)) %>% 
+  gam(value ~ div + s(ybp, bs="cr", by=div), data=.)
+
+#summary(model_tax)
+
+notidy_as_flextable_gam(model_tax) %>% 
+  set_caption(., "Table S2. Generalized additive model (GAM) results for the taxonomic observed and dark diversity and species pool size over the last 14500 years in Northern Europe.")
+
+
+```
+
+
+
+
+```{r tabS3, echo=FALSE, results="asis"}
+
+model_compl <- taxonomic_df %>% 
+  select(-dark:-pool) %>% 
+  ungroup() %>%  
+  filter(!comp == "Inf") %>% 
+  gam(comp ~ s(ybp, bs="cr"), data=.)
+
+
+#summary(model_compl)
+notidy_as_flextable_gam(model_compl)%>% 
+  set_caption(., "Table S3. Generalized additive model (GAM) results for the taxonomic community completeness over the last 14500 years in Northern Europe.")
+
+
+```
+
+
+```{r tabS4, echo=FALSE, results="asis"}
+model_fun <- functional_df %>%
+  dplyr::select(-completeness) %>% 
+  pivot_longer(-c("K_ID":"ybp"), names_to = "variable", values_to = "value") %>% 
+  mutate(variable = fct_relevel(variable,c("Pool", "Observed","Dark"))) %>% 
+  ungroup() %>%  
+  mutate(variable = as.factor(variable)) %>% 
+  gam(value ~ variable + s(ybp, bs="cr", by=variable), data=.)
+
+
+
+
+
+#summary(model_fun)
+notidy_as_flextable_gam(model_fun)%>% 
+  set_caption(., "Table S4. Generalized additive model (GAM) results for the functional observed and dark diversity and species pool size over the last 14500 years in Northern Europe.")
+
+
+```
+
+```{r tabS5, echo=FALSE, results="asis"}
+
+model_func_compl <- functional_df %>%
+  select(-Observed:-Pool) %>% 
+  filter(!completeness == "Inf" ) %>% 
+  ungroup() %>% 
+  gam(completeness ~ s(ybp, bs="cr"), data=.)
+
+
+
+#summary(model_func_compl)
+
+
+notidy_as_flextable_gam(model_func_compl)%>% 
+  set_caption(., "Table S5. Generalized additive model (GAM) results for the functional community completeness over the last 14500 years in Northern Europe.")
+
+```
+
+```{r tabS6, echo=FALSE, results="asis"}
+
+
+
+model_pc1 <- cwm_pca_t %>% 
+  ungroup %>% 
+  mutate(div = fct_relevel(div,c("Observed","Dark"))) %>% 
+  gam(mean_pc1 ~ div+ s(ybp, by=div), data=.)
+
+
+
+
+#summary(model_pc1)
+
+
+notidy_as_flextable_gam(model_pc1)%>% 
+  set_caption(., "Table S6. Generalized additive model (GAM) results for mean trait values (first axis of the PCA - Height, seed weight and clonality) in observed and dark diversity over the last 14500 years in Northern Europe.")
+
+
+```
+
+```{r tabS7, echo=FALSE, results="asis"}
+
+
+
+model_pc2 <- cwm_pca_t %>% 
+  ungroup %>% 
+  mutate(div = fct_relevel(div,c("Observed","Dark"))) %>% 
+  gam(mean_pc2 ~ div + s(ybp, by=div), data=.)
+
+
+
+#summary(model_pc2)
+
+
+notidy_as_flextable_gam(model_pc2)%>% 
+  set_caption(., "Table S7. Generalized additive model (GAM) results for mean trait values (second axis of the PCA - SLA and insect-pollination) in observed and dark diversity over the last 14500 years in Northern Europe.")
+```

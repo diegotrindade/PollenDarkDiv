@@ -1,0 +1,144 @@
+sp,Height.m.,Reproduction_type,Vegetativeness,Seed_weight.mg.,SLA
+Acer,25,seed,0,137.2,NA
+Achillea_t,0.45,seed and veg,0.5,0.13,17.32
+Aconitum,0.9,seed,0,3,19.97
+Agrimonia,0.65,seed,0,23.08,19.65
+Alchemilla,0.33,seed and veg,0.5,0.54,19.36
+Alnus,12.75,"seed, rarely veg",0.1,0.87,23.9
+Anagallis,0.12,seed,0,0.38,NA
+Anemone_t,0.15,seed and veg,0.5,1.41,24.4
+Apiaceae,0.65,seed and veg,0.5,6.3,17.6
+Armeria,0.15,"seed, rarely veg",0.1,0.88,NA
+Artemisia,0.54,seed and veg,0.5,0.19,17.9
+Asteraceae,0.43,seed and veg,0.5,1.225,26.05
+Asteraceae_liguliflorae,0.34,seed and veg,0.5,0.46,33.1
+Asteraceae_tubuliflorae,0.52,seed and veg,0.5,1.99,19
+Astragalus,0.43,seed,0,5.03,28.34
+Betula,26.25,seed,0,0.14,17.3
+Betula_nana_t,0.5,"veg, rarely seed",0.9,0.21,11.62
+Boraginaceae,0.42,"seed, rarely veg",0.1,7.1,26.75
+Brassicaceae,0.43,"seed, rarely veg",0.1,6.4,21.25
+Calluna_vulgaris,0.35,"seed, rarely veg",0.1,0.04,10.92
+Campanula,0.4,seed and veg,0.5,0.15,34.29
+Cannabis_t,NA,NA,NA,NA,NA
+Carpinus,18,"seed, rarely veg",0.1,63.8,23.37
+Caryophyllaceae,0.26,"seed, rarely veg",0.1,0.25,20.68
+Centaurea_cyanus,0.3,seed,0,3.99,21.06
+Centaurea_sp,0.64,"seed, rarely veg",0.1,3.3,18.39
+Cerastium_t,0.13,seed and veg,0.5,0.07,28.5
+Cerealia_sum,NA,NA,NA,NA,NA
+Chamaepericlymenum_suecicum,NA,NA,NA,NA,NA
+Chenopodiaceae,0.44,seed,0,1.53,13
+Chrysosplenium,0.18,seed and veg,0.5,NA,NA
+Circaea,0.28,seed and veg,0.5,1.97,44.16
+Cirsium_t,0.72,seed and veg,0.5,2.31,14.96
+Convolvulaceae,1,seed and veg,0.5,20.8,31.5
+Corylus,5,"seed, rarely veg",0.1,1042,22.25
+Cyperaceae,0.35,seed and veg,0.5,0.76,17.4
+Daphne,0.8,seed,0,90.7,NA
+Dianthus,0.31,seed and veg,0.5,0.1,18.24
+Dipsacaceae,0.53,"seed, rarely veg",0.1,2.83,17.54
+Drosera,0.08,seed and veg,0.5,0.02,24.62
+Dryas,0.045,seed and veg,0.5,1.19,NA
+Empetraceae,0.24,"veg, rarely seed",0.9,0.98,8.4
+Epilobium,0.56,seed and veg,0.5,0.092,23.96
+Epilobium_angustifolium,0.75,seed and veg,0.5,0.08,31.84
+Ericaceae,0.49,seed and veg,0.5,0.05,10.57
+Fabaceae,0.54,seed and veg,0.5,4.99,26.84
+Fagopyrum_esculentum,NA,NA,NA,NA,NA
+Fagus,34.5,seed,0,254,26.68
+Fallopia_convolvulus,1.03,seed,0,3.03,NA
+Filipendula,0.5,seed and veg,0.5,0.71,14.66
+Frangula,4,seed,0,493,NA
+Fraxinus,26.5,seed,0,77.4,17.58
+Galium_t,0.56,seed and veg,0.5,2.79,34.83
+Gentianaceae,0.2,seed,0,0.07,28.63
+Geranium,0.38,seed and veg,0.5,3.74,30.45
+Geum,0.45,seed and veg,0.5,1.93,40.38
+Hedera,15.1,seed and veg,0.5,256.2,NA
+Helianthemum,0.17,"seed, rarely veg",0.1,NA,NA
+Helianthus_t,NA,NA,NA,NA,NA
+Hippophae,3,seed and veg,0.5,11.01,NA
+Humulus,NA,NA,NA,NA,NA
+Hypericum,0.57,seed and veg,0.5,0.17,25.63
+Impatiens,0.62,seed,0,7.37,NA
+Jasione,0.15,seed,0,0.02,36.39
+Juniperus,3,seed,0,7.92,NA
+Knautia,0.63,seed,0,4.63,18.72
+Lamiaceae,0.42,seed and veg,0.5,0.93,35.84
+Ledum,NA,NA,NA,NA,NA
+Liliaceae,0.1,seed and veg,0.5,217,22.58
+Linum_catharcticum,0.15,seed,0,0.13,32.7
+Linum_usitatissimum,NA,NA,NA,NA,NA
+Lychnis_t,0.49,seed and veg,0.5,0.13,19.89
+Lycopus,0.75,seed and veg,0.5,0.25,NA
+Lysimachia,0.61,seed and veg,0.5,0.38,25.83
+Lythrum,0.83,"seed, rarely veg",0.1,0.05,NA
+Melampyrum,0.31,seed,0,8.72,36.64
+Mentha,0.55,seed and veg,0.5,0.13,37.47
+Mercurialis,0.28,seed and veg,0.5,11.4,NA
+Myrica_t,1.5,"veg, rarely seed",0.9,1.56,NA
+Odontites,0.27,seed,0,0.22,22.22
+Onagraceae,0.55,seed and veg,0.5,0.084,30.98
+Ononis,0.48,seed and veg,0.5,4.89,23.07
+Oxyria_t,0.17,seed and veg,0.5,0.59,NA
+Papaveraceae,0.43,seed,0,0.7,42.05
+Parnassia,0.18,seed and veg,0.5,0.03,23.55
+Picea,40,seed,0,7.15,17.2
+Pinus,35,seed,0,8.5,4.97
+Plantago_lanceolata,0.25,"seed, rarely veg",0.1,1.81,16.2
+Plantago_majormedia_t,0.36,"seed, rarely veg",0.1,0.29,20.3
+Plantago_maritima_t,0.23,seed,0,0.73,12.24
+Plantago_sp,NA,NA,NA,NA,NA
+Poaceae,0.57,seed and veg,0.5,1.24,20.78
+Polemoniaceae,0.57,"seed, rarely veg",0.1,0.9,NA
+Polygala,0.11,seed,0,1.72,21.4
+Polygonum_aviculare,1,seed,0,2.07,16.53
+Polygonum_persicaria,NA,NA,NA,NA,NA
+Populus,22.5,seed and veg,0.5,0.12,14.46
+Potentilla,0.36,seed and veg,0.5,0.34,21.15
+Primulaceae,0.31,seed and veg,0.5,0.37,27.55
+Prunella,0.17,seed and veg,0.5,0.67,21.72
+Pulmonaria,0.18,seed,0.5,NA,33.87
+Quercus,40,seed,0,2645,13.98
+Ranunculaceae,0.3,seed and veg,0.5,1.87,22.55
+Ranunculus_acris_t,0.45,seed,0,1.74,20.69
+Rhamnus,4.5,seed,0,15.09,NA
+Rhinanthus,0.38,seed,0,2.93,20.2
+Rosaceae,1.13,seed and veg,0.5,26.72,16.36
+Rubus_chamaemorus,0.13,"veg, rarely seed",0.9,7.4,11.35
+Rumex,0.75,seed and veg,0.5,1.28,22.63
+Rumex_acac_t,0.33,seed and veg,0.5,0.55,30.55
+Rumex_longifolium,0.8,seed,0,1.71,NA
+Sagina,NA,NA,NA,NA,NA
+Salix,5.3,seed and veg,0.5,0.15,13.82
+Sambucus,5,seed,0,89.23,21.37
+Sanguisorba,0.41,seed and veg,0.5,1.35,17.2
+Saxifraga,0.16,seed and veg,0.5,0.015,34.44
+Scheuchzeria_palustris,0.15,seed and veg,0.5,NA,9.78
+Scrophularia,0.79,seed and veg,0.5,0.145,21.18
+Scrophulariaceae,0.26,seed and veg,0.5,0.79,30.54
+Secale,NA,NA,NA,NA,NA
+Sedum,0.15,seed and veg,0.5,0.045,15.08
+Solanum,NA,NA,NA,NA,NA
+SolidagoSaussurea_t,0.34,seed and veg,0.5,1.21,17.84
+Sorbus,9,seed,0,11.05,19.44
+Spergula,0.21,seed,0,0.27,11.68
+Stachys,0.48,seed and veg,0.5,1.25,37.11
+Succisa,0.55,"seed, rarely veg",0.1,1.37,15.62
+Taxus,17.5,seed,0,51.6,NA
+Teucrium_t,0.25,seed and veg,0.5,0.4,38.04
+Thalictrum_t,0.63,seed and veg,0.5,1.88,23.35
+Tilia,19.5,"seed, rarely veg",0.1,40,NA
+Trientalis,0.14,"veg, rarely seed",0.9,0.6,56.91
+Trifolium_t,0.28,seed and veg,0.5,1.54,24.1
+Trollius,0.35,seed and veg,0.5,0.87,NA
+Ulmus,36,"seed, rarely veg",0.1,5.75,39.33
+Urtica,0.37,seed and veg,0.5,0.14,31.58
+Vaccinum_t,0.4,"veg, rarely seed",0.9,0.31,13.33
+Valeriana,0.36,seed and veg,0.5,0.62,22.24
+Veronica,0.25,seed and veg,0.5,0.44,31.45
+Viburnum,3,seed,0,41.8,17.86
+Vicia,0.65,"seed, rarely veg",0.1,19.47,26.7
+Viola,0.16,seed and veg,0.5,1.57,32.24
+Viscum,NA,seed,0,NA,4.18

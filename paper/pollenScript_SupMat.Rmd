@@ -1,0 +1,674 @@
+```{r a, include=FALSE}
+knitr::opts_chunk$set(echo = F,message=FALSE, warning=FALSE)
+```
+
+
+```{r libs, include=FALSE}
+
+library(knitr)
+library(here)
+library(tidyverse)
+library(flextable)
+library(mgcv)
+library(magrittr)
+library(cowplot)
+```
+
+
+```{r include=FALSE}
+
+source(here("functions", "annotations.R"))
+source(here("functions", "GAMoutput.R"))
+
+
+#.RDS file created in pollenScript.Rmd (code chunk: 'traits')
+comb_obs_dd <- readRDS(here("rds", "comb_obs_dd.RDS"))
+```
+
+
+# Code to generate the figures used in Suplementary Material
+
+## Temporal range cover per site (Fig. S1)
+
+```{r tempCover, fig.cap="Temporal range cover per site, from 14500 years before present (cal. yr BP) until the present in Northern Europe."}
+
+
+
+# Pollen data
+pollen <- read_delim(here("data", "pollen_raw2.csv"))
+
+dat.poll <- round(pollen[,-c(1:4)], digits = 0)
+dat.poll2 <- data.frame(pollen[,c(1:4)],dat.poll)
+
+write.csv(dat.poll2, here("data","pollen_raw2.csv"))
+tempCover<- pollen %>% 
+ggplot(aes(x = ybp, y = K_ID)) +
+  geom_point(size=1) +
+  scale_x_reverse(limits = c(14500, -50), 
+                  breaks=c(14500, 12000, 10000, 8000, 6000, 4000, 2000, 0))+ 
+  xlab("Calibrated years before present") +
+  ylab("Site's ID") +
+  theme_cowplot()+
+  expand_limits(y= c(-4, length(levels(pollen$K_ID)) + 2))+
+  geom_vline(xintercept = vlines, colour = "grey", size=.5)+
+  annotate("rect", fill = "darkblue",
+           xmin = 14500, xmax = 11650,alpha = 0.2,
+           ymin = -Inf, ymax = -1)+
+  annotate("text", x=13200, y=-2, label= "Late \nGlacial", fontface =2, size=5)+
+  
+  
+  ### Early Holocene ###
+  
+  annotate("text", x=9900, y=-2, label= "Early \nHolocene", fontface =2, size=5) +
+  annotate("rect", fill = "green",
+           xmin = beg_earlyholocene, xmax = fin_earlyholocene,alpha = 0.1,
+           ymin = -Inf, ymax = -1)+
+  
+  ### Mid Holocene
+  
+  annotate("text", x=6200, y=-2, label= "Mid \nHolocene", fontface =2, size=5) +
+  annotate("rect", fill = "red",
+           xmin = beg_midholocene, xmax = fin_midholocene,alpha = 0.1,
+          ymin = -Inf, ymax = -1)+ 
+  
+  ### Late Holocene
+  
+  annotate("text", x=2000, y=-2, label= "Late \nHolocene", fontface =2, size=5) +
+  annotate("rect", fill = "yellow",
+           xmin = beg_lateholocene, xmax = fin_lateholocene,alpha = 0.1,
+           ymin = -Inf, ymax = -1)+ 
+  # Mesolithic #
+
+
+  
+    annotate("rect", fill = "white",
+             xmin = beg_mesolithic, xmax = fin_mesolithic,
+             ymin =-3.4, ymax = -4.2)+
+  
+  
+  annotate("rect", fill = "grey90",
+           xmin = beg_neolithic, xmax = fin_neolithic,
+            ymin = -3.4, ymax = -4.2)+
+  
+  annotate("rect", fill = "grey80",
+           xmin = beg_bronze, xmax = fin_bronze,
+           ymin = -3.4, ymax = -4.2)+
+  
+  annotate("rect", fill = "grey70",
+           xmin = beg_iron, xmax = fin_iron,
+            ymin = -3.4, ymax = -4.2)+
+  
+  annotate("text", x=8300, y=-3.75, size=4.5, label= "Mesolithic") +
+  annotate("text", x=4900, y=-3.75, size=4.5, label= "Neolithic") +
+  annotate("text", x=3250, y=-3.75, size=4.5, label= "Bronze\nage", lineheight = .7,hjust = .5) +
+  annotate("text", x=1760, y=-3.75, size=4.5, label= "Iron\nage", lineheight = .7,hjust = .5) + theme(axis.text.x = element_text(angle = 20, vjust = 0.5, size=16),
+        axis.text.y = element_text(size=16),
+        axis.title.x = element_text(vjust = 0.5, size=18),
+        axis.title.y = element_text(vjust = 0.5, size=18),
+        legend.text = element_text(size=16))
+
+#ggsave(here("figures", "tempCover.png"),tempCover, height=12,width=12)
+
+
+include_graphics(here("figures","FigSupplement", "tempCover.png"))
+```
+
+
+
+## Sensitivity analysis: Adding highly suitable taxa (Fig. S2)
+
+
+```{r}
+
+data <- as.data.frame(pollen)
+
+
+library(DarkDiv)
+library(viridis)
+
+
+obs=data[,c(-1,-2,-3,-4)]
+
+
+dark=DarkDiv(obs)$Dark
+
+dark[is.na(dark)]=0
+
+# filtering out spp not found within 500 years
+
+for (i in 1:nrow(dark)) {
+dark[i,colSums(obs[abs(data$ybp[i]-data$ybp)<250,colnames(dark)])==0]=0  
+}
+
+dark.size=rowSums(dark>0.9)
+
+#plot(-data$ybp,dark.size)
+
+
+### testing dark size if we ADD randomly some taxa with very high suitability (perhaps missed in a sample)
+
+## all occurrences
+n.occ=sum(obs>0)
+
+obs=as.matrix(obs)
+
+set.seed(99)
+
+results=list()
+add=c(0.02, 0.05, 0.1, 0.15, 0.20, 0.25)
+# proportion of occurrences to imput
+
+for (r in 1:length(add)) {
+  
+  
+  added=sample(1:length(dark),add[r]*n.occ,prob=dark)  
+  # proportional to dark diversity
+  
+  
+  obs1=obs
+  obs1[added]=1
+  obs1.size=rowSums(obs1>0)
+  dark1=DarkDiv(x=obs,r=obs1)$Dark
+  for (i in 1:nrow(dark1)) {
+    dark1[i,colSums(obs[abs(data$ybp[i]-data$ybp)<250,colnames(dark1)])==0]=0  
+  }
+  
+  dark1=dark1>0.9
+  
+  
+  results[[r]]=rowSums(dark1,na.rm = T)
+}
+
+
+
+```
+
+
+```{r addingObs, fig.cap = "Correlation between original dark diversity and dark diversity results after randomly adding a percentage of highly suitable taxa to observed diversity (2%,5%,10%,15%,20%,25%). Even after adding 25% of highly suitable taxa to observed diversity, the correlation between the original dark diveristy size and the one after imputation is still high (92%), suggesting that sampling bias issue is minimal in our dark diversity results. The identity line is drawn on each graph."}
+## Plotting dark size original vs. when adding high suitability taxa to obs
+
+#png("addingTaxa.png", units="in", width = 10, height = 8, res=300)
+set.seed(123)
+par(mfrow=c(2,3))
+for (r in 1:length(results)) {
+  col=viridis(length(results)+2)[r+1]
+   par(mgp=c(2,1,0))
+  plot(dark.size+runif(nrow(data),-0.2,0.2), results[[r]]+runif(nrow(data),-0.2,0.2),
+       col=col,asp=1,
+       xlab = "Original dark diversity size",
+       ylab = "Dark diversity size after imputation\n in observed diversity")
+  mtext(paste0(LETTERS[r]), adj=0, col="black",side = 3, at = -5, line = 1)
+  mtext(paste("add:",add[r],"r =",round(cor(dark.size,results[[r]],method="spearman"),2)),adj=1,col=col)
+  abline(0,1,col=col)
+}
+
+#dev.off()
+
+```
+
+
+```{r addingObsTime}
+## Plotting dark size original vs. when adding high suitability taxa to obs over time
+#png("addingTaxaTime.png", units="in", width = 10, height = 8, res=300)
+
+par(mfrow=c(1,1))
+
+plot(-data$ybp,dark.size,col="red")
+lines(lowess(-data$ybp,dark.size,0.2), col='red',lwd=2)
+for (r in 1:length(results)) {
+  col=viridis(length(results)+2)[r+1]
+  points(-data$ybp+runif(nrow(data),-0.5,0.5),results[[r]],col=col) # adding random jitter to make plots visible
+  lines(lowess(-data$ybp,results[[r]],0.2), col=col,lwd=2)
+  text(-12000,45-r*2,paste("add:",add[r],"r =",round(cor(dark.size,results[[r]],method="spearman"),2)),adj=1,col=col)
+  
+}
+
+
+
+#dev.off()
+
+```
+
+
+## Sensitivity analysis: Spatial autocorrelation (Fig. S3)
+
+#### Mantel test
+```{r mantelTest}
+
+library(geosphere)
+library(vegan)
+
+
+core.coordinates=data[!duplicated(data[,2]),2:4]
+row.names(core.coordinates)=core.coordinates$K_ID
+
+site.dis=apply(core.coordinates[,c("Lon","Lat")],1,function(x) distGeo(x,core.coordinates[,c("Lon","Lat")]))
+row.names(site.dis)=colnames(site.dis)
+  
+### Calculating taxon similarity (presence/absence) in cores vs. distance
+## mantel test
+
+site.obs=rowsum(obs,data$K_ID)>0 # summing presences per core
+
+site.dis=site.dis[row.names(site.obs),row.names(site.obs)] 
+
+site.dissim=as.matrix(vegdist(site.obs>0))
+
+m_test<-mantel(site.dis,site.dissim)
+
+m_test
+### Not significant
+```
+
+
+
+```{r removingclosestSites, warning=F, fig.cap = "Closest sites to be removed from co-occurences"}
+## Calculating dark when gradually removing most close sites from co-occurences
+
+core.coordinates=data[!duplicated(data[,2]),2:4]
+
+row.names(core.coordinates)=core.coordinates$K_ID
+
+plot(core.coordinates[,c("Lon","Lat")])
+
+core.lengths=table(data$K_ID) # how many datapoints per core
+results.spatial=list()
+
+for( r in 1:6) {   # gradually removing cores which are closest to a neighbour
+
+site.dis=apply(core.coordinates[,c("Lon","Lat")],1,function(x) distGeo(x,core.coordinates[,c("Lon","Lat")]))
+row.names(site.dis)=colnames(site.dis)
+
+
+min.dist=row.names(which(site.dis==min(site.dis[site.dis!=0]),arr.ind=T))
+
+remove=names(which.min(core.lengths[min.dist]))
+
+
+points(core.coordinates[remove,c("Lon","Lat")],col="red",pch=as.character(r))
+# Marking on graph removed sites
+
+core.coordinates=core.coordinates[row.names(core.coordinates)!=remove,]
+obs.r=obs[data$K_ID %in% row.names(core.coordinates),]
+
+dark1=DarkDiv(x=obs,r=obs.r)$Dark
+
+for (i in 1:nrow(dark1)) {
+  dark1[i,colSums(obs[abs(data$ybp[i]-data$ybp)<250,colnames(dark1)])==0]=0  
+}
+
+dark1=dark1>0.9
+
+
+results.spatial[[r]]=rowSums(dark1,na.rm = T)
+}
+```
+
+
+```{r removingSites, warning=F, fig.cap = "Correlation between original dark diversity and dark diversity results after removing closest sites (1-6 sites). The correlation between the original dark diveristy size and the dark diversity size after removing six closest sites is still high (98%), suggesting that autocorrelation issue is minimal in our dark diversity results. The identity line is drawn on each graph."}
+## Plotting dark size original vs. when omitting closest sites from co-occurrences
+
+#png("removing_closerSites.png", width=10, height=8, units="in", res=100)
+set.seed(123)
+par(mfrow=c(2,3))
+for (r in 1:length(results.spatial)) {
+  col=viridis(length(results.spatial)+2)[r+1]
+  plot(dark.size+runif(nrow(data),-0.2,0.2), results.spatial[[r]]+runif(nrow(data),-0.2,0.2),
+       xlab = "Dark diversity after omitting closest sites",
+                       ylab = "Original dark diversity size",col=col,asp=1)
+  mtext(paste0(LETTERS[r]), adj=0, col="black",side = 3, at = -5, line = 1)
+  mtext(paste("Remove",r,"sites, r =",round(cor(dark.size,results.spatial[[r]],method="spearman"),2)),adj=1,col=col)
+  abline(0,1,col=col)
+}
+#dev.off()
+
+
+par(mfrow=c(1,1))
+
+
+```
+
+### Code to generate the frequency of taxa over time (Fig. S4)
+
+```{r figAppendixfreq, fig.cap="Relative frequency of taxa in observed and dark diversity from 14500 years before present (cal. yr BP) until the present. The relative frequency of taxa was calculated for each 500-year time window using the number of times taxa occupied a site (observed diversity) or were suitable but absent (dark diversity) divided by the number of sites at each time window. Only taxa with more than 70% of frequency either within observed or dark diversity in any time window are shown."}
+
+
+freq_fig <- comb_obs_dd %>% 
+ 
+  mutate(ybp = case_when(ybp == 30.000000 & K_ID == "K34" ~ 30.1,
+                        ybp == 12872.000000 & K_ID == "K56" ~ 12872.1,
+                        T ~ ybp)) %>%
+  ungroup %>%
+  group_by(time_window) %>%
+  
+  #getting number of years for each 500 years time windows
+  mutate(n = n_distinct(ybp)) %>% 
+  
+  group_by(time_window,sp) %>% 
+  #sum of occurrences in observed and dark
+  mutate(sum_dark = sum(dark),
+         sum_obs = sum(obs)) %>% 
+  #frequencies
+  mutate(freq_dark = sum_dark/n,
+         freq_obs = sum_obs/n) %>% 
+  ungroup %>% 
+  group_by(sp) %>%
+  
+  #calculating max frequency to filter those taxa with more than 30% of frequency
+  
+  mutate(max_dark = max(freq_dark),
+         max_obs = max(freq_obs)) %>% 
+  
+  #Filtering taxa with frequencies >= 0.3 either in Observed or Dark diversity
+  filter(max_dark >=0.7 | max_obs >= 0.7) %>% 
+  select(-max_dark,-max_obs) %>% 
+  pivot_longer(-c(K_ID:sum_obs),names_to = "div", values_to = "value") %>% 
+  ungroup %>% 
+  mutate(div = fct_relevel(div,c("freq_obs","freq_dark"))) %>%
+  
+  # Figure
+  ggplot(aes(y = value, x=ybp, colour=div))+
+  scale_color_manual(name = "",labels = c("Observed diversity","Dark diversity"),values = c("#E69F00", "#56B4E9"))+
+
+  
+  geom_line()+
+  scale_x_reverse()+
+  theme_cowplot()+
+  annotate("rect", fill = "darkblue",
+           xmin = 14500, xmax = 11650,alpha = 0.2,
+           ymin = -Inf, ymax = Inf)+
+  
+  
+  ### early Holocene ###
+  annotate("rect", fill = "green",
+           xmin = beg_earlyholocene, xmax = fin_earlyholocene,alpha = 0.1,
+           ymin = -Inf, ymax = Inf)+
+  
+  ### Mid Holocene
+  annotate("rect", fill = "red",
+           xmin = beg_midholocene, xmax = fin_midholocene,alpha = 0.1,
+           ymin = -Inf, ymax = Inf)+ 
+  
+  ### Late Holocene
+  
+  annotate("rect", fill = "yellow",
+           xmin = beg_lateholocene, xmax = fin_lateholocene,alpha = 0.1,
+           ymin = -Inf, ymax = Inf)+
+  ylab("Frequency")+
+  xlab("Calibrated years before present")+
+  ggtitle("Frequency of each taxa in observed and dark diversity for each time window (500 years)")+
+  
+  facet_wrap(~sp)
+
+#ggsave(here("figures", "freq_taxa.png"),freq_fig, height=12,width=20)
+
+
+
+# Number taxa in dark diversity
+# 
+# comb_obs_dd %>% ungroup %>%
+#   #select(-pool,-obs) %>%
+#   filter(dark>0) %>%
+#   mutate(n=n_distinct(sp))
+# 
+# 
+# Top 5 taxa in observed and dark diversity
+# 
+# 
+# comb_obs_dd %>%
+#   group_by(sp) %>%
+#   summarise(n_dark = sum(dark),
+#          n_obs = sum(obs)) %>%
+#   arrange(desc(n_dark))
+# 
+# 
+# 
+# 
+# comb_obs_dd %>%
+#   group_by(sp) %>%
+#   summarise(n_dark = sum(dark),
+#             n_obs = sum(obs)) %>%
+#   arrange(desc(n_obs))
+# 
+
+
+include_graphics(here("figures","FigSupplement", "freq_taxa.png"))
+```
+
+### Code to generate the PCA figure (Fig. S5)
+
+```{r pcaCode, fig.cap = "Principal component analysis of the functional spectra of plants in Northern Europe, depicting the first axis represented by Height (hmax), seed weight (sm) and clonality and the second axis represented by specific leaf area (sla). The first axis (PC1) explains 46.7% of the total variation and the second axis (PC2) explains 24% of the total variation."}
+
+# Code to generate the PCA figure
+
+att <- read.csv(here("data", "pollen_trait2.csv"), h=T, sep=",",row.names=NULL)
+
+
+traitPollen <- att%>% 
+  as_tibble() %>% 
+  dplyr::select(-Reproduction_type) %>% 
+  mutate(hmax = log(Height.m.), sm = log(Seed_weight.mg.), sla = log(SLA))%>% # log transformation
+  dplyr::select(-Height.m., -Seed_weight.mg., -SLA,clonality=Vegetativeness) %>% drop_na() %>% 
+  column_to_rownames("sp")
+
+x = princomp(scale(traitPollen))
+
+library(factoextra)
+library(ggrepel)
+
+options(ggrepel.max.overlaps = 10) #controls overlap in PCA text. Increase this number to see more text (taxa names) in the PCA.
+
+pca_figure<-fviz_pca_biplot(x,geom = c("point","text"),
+                            col.var = "red",
+                            repel=TRUE)+
+  ggtitle("")+
+xlim(c(4,-5)) + ylim(c(4.5,-4))
+
+
+# ggsave(here("figures", "fig_pca.png"), pca_figure, height=8, width = 8)
+
+
+include_graphics(here("figures","FigSupplement", "fig_pca.png"))
+```
+
+### Code to generate the comparison between Andersen and raw pollen data (Fig. S6)
+
+```{r Comparison, cache=FALSE}
+
+
+#the code is available in the script `pollen_comparison.Rmd`
+
+taxonomic_df_compar<- readRDS(here("rds","taxonomic_df_compar.RDS"))
+
+
+taxonomic_plot <- taxonomic_df_compar %>% 
+  map(~.x %>%
+        
+  select(-comp) %>% pivot_longer(-c(ybp,K_ID), names_to = "div", values_to = "values") %>% 
+  mutate(div = fct_relevel(div,c("pool", "obs","dark")))) %>% 
+  
+  imap(., ~mutate(.x, data_type = .y, .before = K_ID)) %>%  
+  reduce(bind_rows) %>% 
+  group_by(data_type) %>% 
+  nest() %>% 
+  mutate(plot.dd = map2(data, data_type, ~ 
+                          ggplot(data = .x,  aes(x=ybp,y=values, color=div, fill=div)) +
+  
+geom_point(alpha=.09)+
+  scale_color_manual(name = "",labels = c("Species pool size","Observed diversity","Dark diversity"),values = c("#A9A9A9","#E69F00", "#56B4E9"))+
+  scale_fill_manual(name = "",labels = c("Species pool size","Observed diversity","Dark diversity"),values = c("#A9A9A9","#E69F00", "#56B4E9"))+
+  guides(colour = guide_legend(override.aes = list(alpha = .5)))+
+  geom_vline(xintercept = vlines, colour = "grey", size=.5)+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs="cr"), se=T)+
+  scale_x_reverse(limits = c(14500, -50), 
+                  breaks=c(14500, 12000, 10000, 8000, 6000, 4000, 2000, 0))+
+  coord_cartesian(ylim = c(-20,70),
+                  clip = 'off')+
+  scale_y_continuous(breaks=c(0, 20, 40, 60, 80))+
+   theme_cowplot() +
+  
+  labs(y="Number of taxa", x="Calibrated years before present")+
+  theme(legend.position = "none") + 
+  theme_div))
+
+plot_andersen <- taxonomic_plot$plot.dd[[1]] + ggtitle("Pollen diversity patterns - Andersen transformed")
+
+plot_raw <- taxonomic_plot$plot.dd[[2]] + ggtitle("Pollen diversity patterns - Raw data")
+
+fig_andersen_raw <- plot_grid(plot_andersen, plot_raw)
+
+#fig_andersen_raw
+
+
+#ggsave(here("figures", "fig_pollen_comparison.png"), fig_andersen_raw, height=8, width = 12, dpi=600)
+
+
+include_graphics(here("figures","FigSupplement", "fig_pollen_comparison.png"))
+```
+
+```{r readData, include=FALSE}
+
+
+taxonomic_df <- readRDS(here("rds", "tax_obsdark.rds"))
+
+functional_df <- readRDS(here("rds", "functional_df.RDS"))
+
+cwm_pca_t <- readRDS(here("rds","mean_traits.rds"))
+
+```
+
+### Tables
+
+
+##### Table S2
+```{r tabS1, echo=FALSE, results="asis"}
+
+model_tax <- taxonomic_df %>% select(-comp) %>% 
+  pivot_longer(-c("K_ID", "ybp"), names_to = "div", values_to = "value") %>%  
+  mutate(div = fct_relevel(div,c("pool", "obs","dark"))) %>% 
+  ungroup() %>%  
+  mutate(div = as.factor(div)) %>% 
+  gam(value ~ div + s(ybp, bs="cr", by=div), data=.)
+
+#summary(model_tax)
+
+notidy_as_flextable_gam(model_tax) %>% 
+  set_caption(., "Generalized additive model (GAM) results for the taxonomic observed and dark diversity and species pool size over the last 14500 years in Northern Europe.")
+
+
+```
+
+
+
+##### Table S3
+
+```{r tabS2, echo=FALSE, results="asis"}
+
+model_compl <- taxonomic_df %>% 
+  select(-dark:-pool) %>% 
+  ungroup() %>%  
+  filter(!comp == "Inf") %>% 
+  gam(comp ~ s(ybp, bs="cr"), data=.)
+
+
+#summary(model_compl)
+notidy_as_flextable_gam(model_compl)%>% 
+  set_caption(., "Generalized additive model (GAM) results for the taxonomic community completeness over the last 14500 years in Northern Europe.")
+
+
+```
+
+
+##### Table S4
+
+```{r tabS3, echo=FALSE, results="asis"}
+model_fun <- functional_df %>%
+  dplyr::select(-completeness) %>% 
+  pivot_longer(-c("K_ID":"ybp"), names_to = "variable", values_to = "value") %>% 
+  mutate(variable = fct_relevel(variable,c("Pool", "Observed","Dark"))) %>% 
+  ungroup() %>%  
+  mutate(variable = as.factor(variable)) %>% 
+  gam(value ~ variable + s(ybp, bs="cr", by=variable), data=.)
+
+
+
+
+
+#summary(model_fun)
+notidy_as_flextable_gam(model_fun)%>% 
+  set_caption(., "Generalized additive model (GAM) results for the functional observed and dark diversity and species pool size over the last 14500 years in Northern Europe.")
+
+
+```
+
+
+##### Table S5
+
+```{r tabS4, echo=FALSE, results="asis"}
+
+model_func_compl <- functional_df %>%
+  select(-Observed:-Pool) %>% 
+  filter(!completeness == "Inf" ) %>% 
+  ungroup() %>% 
+  gam(completeness ~ s(ybp, bs="cr"), data=.)
+
+
+
+#summary(model_func_compl)
+
+
+notidy_as_flextable_gam(model_func_compl)%>% 
+  set_caption(., "Generalized additive model (GAM) results for the functional community completeness over the last 14500 years in Northern Europe.")
+
+```
+
+
+##### Table S6
+
+```{r tabS5, echo=FALSE, results="asis"}
+
+
+
+model_pc1 <- cwm_pca_t %>% 
+  ungroup %>% 
+  mutate(div = fct_relevel(div,c("Observed","Dark"))) %>%  
+  gam(mean_pc1 ~ div+ s(ybp, by=div), data=.)
+
+
+
+
+#summary(model_pc1)
+
+
+notidy_as_flextable_gam(model_pc1)%>% 
+  set_caption(., "Generalized additive model (GAM) results for mean trait values (first axis of the PCA - Height, seed weight and clonality) in observed and dark diversity over the last 14500 years in Northern Europe.")
+
+
+```
+
+
+
+##### Table S7
+
+```{r tabS6, echo=FALSE, results="asis"}
+
+
+
+model_pc2 <- cwm_pca_t %>% 
+  ungroup %>% 
+  mutate(div = fct_relevel(div,c("Observed","Dark"))) %>% 
+  gam(mean_pc2 ~ div+ s(ybp, by=div), data=.)
+
+
+
+#summary(model_pc2)
+
+
+notidy_as_flextable_gam(model_pc2)%>% 
+  set_caption(., "Generalized additive model (GAM) results for mean trait values (second axis of the PCA - SLA) in observed and dark diversity over the last 14500 years in Northern Europe.")
+```
+
+
+
+
+

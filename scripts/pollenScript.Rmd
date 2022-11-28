@@ -1,0 +1,498 @@
+---
+title: "Code to reproduce all analyses and figures used in the paper"
+author: "Diego Trindade"
+date: "20 9 2022"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	cache.lazy = FALSE,
+	options(scipen=999)
+)
+```
+
+```{r renv}
+#Storing all packages (and their current version) used in this project to ensure reproducibility in the future
+#Don't run this chunk! All packages used in this project should be stored in renv.lock file already
+#If you face any issue with `renv::restore()`, use `renv::init()` and choose the 2nd option, further use renv::snapshot().
+#renv::init()
+#renv::snapshot()
+#renv::restore()
+#renv::status()
+```
+
+```{r packages}
+library(DarkDiv)
+library(TPD)
+library(here)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(readr)
+library(tibble)
+library(mgcv)
+library(cowplot)
+library(knitr)
+library(flextable)
+library(magrittr)
+library(stringr)
+library(forcats)
+```
+# Data analysis
+
+```{r taxon}
+# Pollen data
+pollen <- read_delim(here("data", "pollen_raw.csv")) 
+#function to create the time_window labels
+lettersExp <- c(letters, sapply(letters, function(x) paste0(x, letters)))
+# adding 500 years intervals
+pollenyears <- pollen%>%
+  #dplyr::select(-Chamaepericlymenum_suecicum, -Ledum, -Sagina) %>%
+  dplyr::group_by(K_ID)%>%
+  
+  #creating the 500 y intervals
+  mutate(time_window = cut(ybp, breaks=seq(-50,14450,by=500), 
+                           include.lowest = T,
+                           labels= lettersExp[1:29])) %>% 
+  
+  dplyr::select(K_ID, ybp,time_window, Acer:Viscum)
+# excluding some taxa from the LG period following Reitalu et al. 2015
+occurrence <- pollenyears %>% ungroup %>%
+
+    
+  #Excluding species like in Reitalu et al. 2015
+                                    
+                                     mutate(Alnus = case_when(Alnus > 0 & ybp >= 11650 ~ 0,
+                                 T ~ Alnus),
+                                 Corylus = case_when(Corylus > 0 & ybp >= 11650 ~ 0,
+                                                     T ~ Corylus),
+                                 Tilia = case_when(Tilia > 0 & ybp >= 11650 ~ 0,
+                                                     T ~ Tilia),
+                                 Quercus = case_when(Quercus > 0 & ybp >= 11650 ~ 0,
+                                                   T ~ Quercus),
+                                 Ulmus = case_when(Ulmus > 0 & ybp >= 11650 ~ 0,
+                                                     T ~ Ulmus),
+                                 Fraxinus = case_when(Fraxinus > 0 & ybp >= 11650 ~ 0,
+                                                   T ~ Fraxinus),
+                                 Carpinus = case_when(Carpinus > 0 & ybp >= 11650 ~ 0,
+                                                   T ~ Carpinus))# %>% 
+                                 
+                           
+# selecting Sites' ID (K_ID), year and period to bind them again afterwards
+sel_col <- occurrence %>% 
+   select(K_ID:time_window)
+```
+
+```{r darkdiv}
+# Estimating dark diversity using the DarkDiv function
+hyperg <- occurrence %>% ungroup %>% 
+                         select(-K_ID, -ybp,-time_window) %>% 
+                         DarkDiv(., method = "Hypergeometric", removeAbsent = T)
+# Creating the observed diversity dataframe
+obs <- occurrence %>% 
+  ungroup %>%
+  mutate(across(.cols = -c(K_ID:time_window  ), 
+                ~case_when(. > 0~ 1, 
+                           T ~ 0))) %>% 
+  pivot_longer(-c(K_ID:time_window), names_to = "sp", values_to = "obs")
+# Creating the dark diversity data frame
+dd <- hyperg %>% 
+   pluck("Dark") %>%
+        as_tibble %>%  
+        dplyr::mutate_all(~replace_na(., 0)) %>% 
+        dplyr::mutate(div = "dark", .before = 1) %>% 
+  
+  #Filtering dark diversity taxa (>90% probability)
+  mutate(across(.cols = -c(div), ~case_when(. > .90~ 1, 
+                           T ~ 0))) %>% 
+  bind_cols(sel_col) %>% 
+  relocate( "K_ID", "ybp", "time_window")%>%
+  select(-div) %>% 
+  pivot_longer(-c(K_ID:time_window), names_to = "sp", values_to = "dark")
+# Creating the species pool size data frame
+pool <- hyperg %>% 
+  pluck("Pool") %>% 
+        as_tibble %>%
+        mutate_all(~replace_na(., 0)) %>% 
+        mutate(div = "pool", .before = 1) %>%
+  mutate(across(.cols = -c(div), 
+                ~case_when(. > .90~ 1, 
+                           T ~ 0))) %>% 
+  bind_cols(sel_col) %>% 
+  relocate( "K_ID", "ybp", "time_window") %>%
+  select(-div) %>% 
+  pivot_longer(-c(K_ID:time_window), names_to = "sp", values_to = "pool")
+```
+```{r comball}
+# Combining observed diversity, dark diversity and species pool size data frames
+comb_obs_dd <- obs %>% 
+  left_join(dd, by=c("K_ID", "ybp","time_window", "sp"))%>%
+  left_join(pool, by=c("K_ID", "ybp","time_window", "sp")) %>% 
+  group_by(sp,time_window) %>% 
+  arrange(desc(ybp)) %>% 
+  
+  # Allowing taxa in dark diversity only if they appeared in observed diversity during 500 years time-window.
+  
+  
+ mutate(dark = case_when(cumsum(obs == 1 & pool == 1) == 0 ~ 0,
+      T~dark),
+       pool = case_when(cumsum(obs == 1 & pool == 1) == 0 ~ 0,
+          T~pool)) %>%
+  
+  mutate(sp = str_replace(sp, "_t", ""))
+  
+# Data frame with taxonomic dark, observed, species pool size and community completeness
+taxonomic_df <- comb_obs_dd %>% group_by(K_ID, ybp) %>%
+  summarize(dark = sum(dark), obs=sum(obs), pool = obs+dark) %>% 
+    mutate(comp = log(obs/dark))
+```
+
+```{r traits}
+#trait data
+att <- read.csv(here("data", "pollen_trait.csv"), h=T, sep=",",row.names=NULL) 
+#log trait data
+
+
+trait.pollen <- att %>% 
+  mutate(sp = str_replace(sp, "_t", "")) %>% 
+  as_tibble() %>% 
+  dplyr::select(-Reproduction_type) %>% 
+  mutate(hmax = log(Height.m.), sm = log(Seed_weight.mg.), sla = log(SLA)) %>% # log transformation
+  dplyr::select(-Height.m., -Seed_weight.mg., -SLA,clonality=Vegetativeness) %>% drop_na()
+# Combining community and trait data and removing NAs
+
+obs_dd_reg <- comb_obs_dd %>% rename(Observed = obs, Dark = dark, Pool = pool) %>%
+  pivot_longer(-c(K_ID:sp), names_to = "div", values_to = "value") %>% 
+        pivot_wider(names_from = "sp", values_from = "value") %>%
+  pivot_longer(-K_ID:-div,names_to = "sp", values_to = "value") %>% 
+        group_by(sp) %>% 
+        left_join(trait.pollen, by="sp") %>% 
+         drop_na()
+# Selecting only traits
+trait_df <- obs_dd_reg %>%
+  ungroup %>% 
+  dplyr::select(sp,clonality:sla) %>% 
+  distinct(sp,.keep_all = T) %>% 
+  column_to_rownames("sp")
+
+#t_leg <- get_legend(cwm_sla_pca_p)
+  
+# Selecting only community
+comm_df <- obs_dd_reg %>% 
+  ungroup %>% 
+  dplyr::select(-clonality:-sla) %>% 
+  pivot_wider(names_from = "sp", values_from = "value") %>%
+                                  ungroup %>% 
+  select(-time_window) %>%  
+  group_by(K_ID) %>%  
+  arrange(desc(ybp), .by_group=T) %>% 
+  ungroup
+#Saving a .RDS file to be used in pollenScript_SupMat.Rmd
+#saveRDS(comb_obs_dd, here("rds", "comb_obs_dd.RDS"))
+```
+
+
+```{r TPD}
+# PCA, mean trait values (new_traits) and TPDs
+#saveRDS(trait_df, here("rds","trait.RDS"))
+x = princomp(scale(trait_df))
+new_traits <- x$scores[,1:2]
+sdMat <- sqrt(diag(Hpi.diag(new_traits)))
+sdMat <- matrix(rep(sdMat, nrow(new_traits)), 
+                ncol = ncol(new_traits),
+                byrow = T, dimnames = dimnames(new_traits))
+tpd_s <- TPDsMean(species = rownames(new_traits),
+                  means = new_traits, sds = sdMat, n_divisions = 100)
+```
+
+<!--
+#Warning! This chunk is quite slow. The object 'obs_dark_tpd' is taking quite long to run. If you don't want to wait, skip this chunk and run the chunk below (functional_df.RDS) instead. ##
+-->
+```{r functional-decomposition, eval = FALSE}
+# Calculating observed and dark diversity TPD for each time
+commData <- comm_df %>% 
+  filter(!div == "Pool")%>% 
+  unite(row_numb,c("K_ID","ybp", "div"), sep = "_") %>% 
+  column_to_rownames("row_numb")
+# TPDc
+tpd_c <- TPDc(TPDs = tpd_s, sampUnit = commData)
+#gc()
+#memory.limit(9999999999)
+# Function to decompose the functional space of observed and dark diversity 
+source(here("functions", "decompSpace.R"))
+
+
+# Decomposing observed and dark functional spaces
+########################
+
+
+#Warning! The following object 'obs_dark_tpd' is taking quite long to run. If you don't want to wait, skip this chunk and run the chunk below (functional_df.RDS) instead. ##
+########################
+library(tictoc)
+
+tic()
+obs_dark_tpd <- decompSpace(tpd_c)
+toc()
+
+
+library(reshape2)
+
+
+#separating overlap and unique functional space into different data frames
+overl<-melt(obs_dark_tpd$communities$Overlap)
+uniq <- melt(obs_dark_tpd$communities$Unique)
+#Overlap between functional observed and dark diversity
+over_df <- overl %>% drop_na() %>% 
+  separate(Var1, c("K_ID","ybp","div"), "_", convert = TRUE) %>%
+  separate(Var2, c("K_ID2","ybp2","div2"), "_", convert = TRUE) %>% 
+  select(div,K_ID, ybp,value) %>% filter(div == "Observed") %>% select(-div, obs=value) %>% 
+  group_by(K_ID,ybp) %>% 
+  filter(row_number()==1) %>% 
+  ungroup
+#Unique portion of functional observed and dark diversity
+uniq_df <- uniq %>%
+  separate(Var1, c("TDP_dissim","K_ID","ybp","div"), "_", convert = TRUE) %>%
+  separate(Var2, c("TDP_dissim2","K_ID2","ybp2","div2"), "_", convert = TRUE) %>% 
+  filter_("ybp==ybp2",
+          "div!=div2",
+          "K_ID==K_ID2") %>% 
+  relocate(div, .after=TDP_dissim) %>% 
+  arrange(desc(ybp), .by_group = TRUE)
+# Combining the unique portion of functional observed with the overlap, in order to get the total functional space of observed diversity
+uniq_obs <- uniq_df %>% select(-TDP_dissim, -TDP_dissim2, -div2, -K_ID2,-ybp2) %>% 
+filter(div=="Observed") %>%
+rownames_to_column() %>% 
+pivot_wider(names_from = div, values_from=value) %>% select(-rowname) %>%
+  group_by(K_ID) %>% 
+  full_join(over_df, by=c("K_ID", "ybp")) %>% 
+  arrange(desc(ybp),.by_group = T) %>% 
+  mutate(Observed = coalesce(Observed, obs)) %>% select(-obs)
+# Functional dark diversity is the unique portion occupied by taxa (without the overlap)
+uniq_dark <-uniq_df %>% dplyr::select(-TDP_dissim, -TDP_dissim2, -div2, -K_ID2,-ybp2) %>%
+filter(div=="Dark")%>% 
+rownames_to_column() %>% 
+pivot_wider(names_from = div, values_from=value) %>% select(-rowname)
+#Combining both functional observed and dark data frames and calculating the functional community completeness
+functional_df <- uniq_obs %>% ungroup %>% 
+  left_join(uniq_dark, by=c("ybp", "K_ID")) %>% 
+  mutate_all(~replace(., is.na(.), 0)) %>% 
+  mutate(Pool = Observed+Dark,
+    completeness=log(Observed/Dark))
+#saveRDS(functional_df, here("rds", "functional_df.RDS"))
+```
+
+```{r}
+# This .RDS file is a product of the chunk above ('functional-decomposition'), and stores the functional observed and dark diversity results.
+functional_df <- readRDS(here("rds", "functional_df.RDS"))
+```
+
+```{r PCA12}
+df_pca <- new_traits %>% as.data.frame() %>% 
+  rownames_to_column("sp")
+cwm_pca_t <- comm_df %>% filter(!div == "Pool") %>% 
+  pivot_longer(-c("K_ID":"div"), names_to = "sp", 
+               values_to = "value") %>% 
+  left_join(df_pca, by = "sp") %>% 
+  filter(value > 0) %>% 
+  group_by(K_ID, ybp,div) %>% 
+  summarise(mean_pc1 = mean(Comp.1), mean_pc2 = mean(Comp.2)) %>% 
+  ungroup
+```
+
+
+# Figures
+```{r}
+### code to generate the annotations used in Fig. 2 and 3 ###
+source(here("functions", "annotations.R")) 
+```
+
+```{r fig1}
+#Obs dark over time
+taxonomic_plot <- taxonomic_df %>% 
+  select(-comp) %>% pivot_longer(-c(ybp,K_ID), names_to = "div", values_to = "values") %>% 
+  mutate(div = fct_relevel(div,c("pool", "obs","dark"))) %>% 
+  ggplot(aes(x=ybp,y=values, color=div, fill=div))+
+  geom_point(alpha=.09)+
+  scale_color_manual(name = "",labels = c("Species pool size","Observed diversity","Dark diversity"),values = c("#A9A9A9","#E69F00", "#56B4E9"))+
+  scale_fill_manual(name = "",labels = c("Species pool size","Observed diversity","Dark diversity"),values = c("#A9A9A9","#E69F00", "#56B4E9"))+
+  guides(colour = guide_legend(override.aes = list(alpha = .5)))+
+  geom_vline(xintercept = vlines, colour = "grey", size=.5)+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs="cr"), se=T)+
+  scale_x_reverse(limits = c(14500, -50), 
+                  breaks=c(14500, 12000, 10000, 8000, 6000, 4000, 2000, 0))+
+  coord_cartesian(ylim = c(-20,70),
+                  clip = 'off')+
+  scale_y_continuous(breaks=c(0, 20, 40, 60, 80))+
+   theme_cowplot() +
+  
+  labs(y="Number of taxa", x="Calibrated years before present")+
+  theme(legend.position = "none") + 
+  theme_div
+
+
+### Functional obs dark
+func_obsdark <- functional_df %>% 
+  dplyr::select(-completeness) %>% 
+  pivot_longer(-c("K_ID":"ybp"), names_to = "variable", values_to = "value") %>% 
+  mutate(variable = fct_relevel(variable,c("Pool", "Observed","Dark"))) %>% 
+  ggplot(aes(x=ybp,y=value, color=variable, fill=variable))+
+  geom_point(aes(color=variable, fill=variable),alpha=.09)+
+  scale_color_manual(name = "",labels = c("Species pool size","Observed diversity","Dark diversity"),values = c("#A9A9A9","#E69F00", "#56B4E9"))+
+  scale_fill_manual(name = "",labels = c("Species pool size","Observed diversity","Dark diversity"),values = c("#A9A9A9","#E69F00", "#56B4E9"))+
+  guides(colour = guide_legend(override.aes = list(alpha = .5)))+
+  geom_vline(xintercept = vlines, colour = "grey", size=.5)+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs="cr", k=-1), se=T, size = 1.2)+
+  scale_x_reverse(limits = c(14500, -50), 
+                  breaks=c(14500, 12000, 10000, 8000, 6000, 4000, 2000, 0))+
+  theme_cowplot() +
+  coord_cartesian(ylim = c(-20,70), clip = 'off')+
+  
+  scale_y_continuous(breaks=c(0, 20, 40, 60, 80))+
+  theme(legend.position = c(.65,.9))+
+  theme_div +
+  labs(y="Functional space", x="Calibrated years before present")
+
+
+#### Taxonomic Completeness
+compl_pl <- taxonomic_df %>% 
+  filter(!comp == "Inf" ) %>% 
+  ungroup() %>% 
+  ggplot(., aes(x = ybp, y=comp))+ 
+  labs(y = "Taxonomic completeness")+
+  labs(x = "Calibrated years before present") +
+  
+  
+  geom_point(alpha=.09,color="#D55E00", fill = "#D55E00")+
+  geom_vline(xintercept = vlines, colour = "grey", size=.5)+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k=-1), se=T,size=1.2, alpha =.2, color="#D55E00", fill = "#D55E00")+
+  
+  
+  scale_x_reverse(limits = c(14500, -50), 
+                  breaks=c(14500, 12000, 10000, 8000, 6000, 4000, 2000, 0))+
+  coord_cartesian(ylim = c(-3,5), clip = 'off')+
+  
+  scale_y_continuous(breaks=c(0, 2.5, 5))+
+  theme_cowplot()+
+  theme(legend.position = "none") + 
+theme_completeness
+
+
+
+# Functional plot
+func_comp_pl <- functional_df %>%
+  filter(!completeness=="Inf") %>%  
+  ggplot(aes(x=ybp, y=completeness),data=.)+
+  labs(y = "Functional completeness")+
+  labs(x = "Calibrated years before present") +
+  geom_vline(xintercept = vlines, colour = "grey", size=.5)+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs="cr", k=-1), se=T,size=1.2, alpha =.2, color="#D55E00", fill = "#D55E00")+
+  geom_point(alpha=.09,color="#D55E00", fill = "#D55E00")+
+ 
+  
+  coord_cartesian(ylim = c(-3,5),  clip = 'off')+
+  scale_x_reverse(limits = c(14500, -50), breaks=c(14500, 12000, 10000, 8000, 6000, 4000, 2000, 0))+
+  
+  scale_y_continuous(breaks=c(0, 2.5, 5))+
+   theme_cowplot()+
+  
+  theme(legend.position = "none")+
+  theme_completeness
+
+
+
+div_fig <- plot_grid(taxonomic_plot, func_obsdark, 
+                     compl_pl,func_comp_pl,
+          ncol = 2, nrow = 2, rel_widths = c(1,1),
+          labels = c('A', 'B', "C", "D"))
+#ggsave(here("figures", "fig_pollen.png"), div_fig, height=14, width = 16, dpi=600)
+```
+
+
+```{r meant}
+
+df_pca <- new_traits %>% as.data.frame() %>% 
+  rownames_to_column("sp")
+
+
+cwm_pca_t <- comm_df %>% filter(!div == "Pool") %>% 
+  pivot_longer(-c("K_ID":"div"), names_to = "sp", 
+               values_to = "value") %>% 
+  left_join(df_pca, by = "sp") %>% 
+  filter(value > 0) %>% 
+  group_by(K_ID, ybp,div) %>% 
+  summarise(mean_pc1 = mean(Comp.1), mean_pc2 = mean(Comp.2)) %>% 
+  ungroup
+
+### PCA1
+cwm_sm_pca_p <- cwm_pca_t %>% 
+  mutate(div = fct_relevel(div,c("Observed","Dark"))) %>% 
+  ggplot(aes(x = ybp, y=mean_pc1,colour=div, fill=div))+
+  labs(y = "")+
+  labs(x = "Calibrated years before present") +
+  geom_point(alpha = .2)+
+  geom_vline(xintercept = vlines, colour = "grey", size=.5)+
+  geom_smooth(method = "gam", formula = y ~ s(x), size=1.2)+
+  
+  scale_color_manual(name = "",labels = c("Observed diversity","Dark diversity"),values = c("#E69F00", "#56B4E9"))+
+  scale_fill_manual(name = "",labels = c("Observed diversity","Dark diversity"),values = c("#E69F00", "#56B4E9"))+
+  
+  coord_cartesian(ylim = c(3.1, -3), xlim = c(14500, 0), clip="off") +
+   scale_y_reverse()+
+  scale_y_continuous(breaks=c(-3,-2,-1,0,1))+
+  scale_x_reverse(breaks=c(14500, 12000, 10000, 8000, 6000, 4000, 2000, 0))+
+   
+  
+  theme_cowplot()+
+ annotate("segment", x=16200, y=1, xend=16200, yend=-2.5,
+           col="black", arrow=arrow(length=unit(0.3, "cm")))+
+  annotate("segment", x=16200, y=-2.5, xend=16200, yend=1,
+             col="black", arrow=arrow(length=unit(0.3, "cm")))+
+  theme(legend.position = "none")+
+  ylab(expression(""))+
+   theme_traits
+  
+   
+  
+### PCA2
+cwm_sla_pca_p <- cwm_pca_t %>% 
+  mutate(div = fct_relevel(div,c("Observed","Dark"))) %>% 
+  ggplot(aes(x = ybp, y=mean_pc2,colour=div, fill=div))+
+  geom_point(alpha = .2)+
+  geom_vline(xintercept = vlines, colour = "grey", size=.5)+
+  geom_smooth(method = "gam", formula = y ~ s(x), size = 1.2)+
+  labs(y = "")+
+  labs(x = "Calibrated years before present") +
+  
+ coord_cartesian(ylim = c(3.1, -3), xlim = c(14500, 0), clip="off") +
+   scale_y_reverse()+
+  scale_y_continuous(breaks=c(-3,-2,-1,0,1))+
+  scale_x_reverse(breaks=c(14500, 12000, 10000, 8000, 6000, 4000, 2000, 0))+
+   
+  
+  theme_cowplot()+
+  annotate("segment", x=16200, y=1, xend=16200, yend=-2.5,
+           col="black", arrow=arrow(length=unit(0.3, "cm")))+
+  annotate("segment", x=16200, y=-2.5, xend=16200, yend=1,
+             col="black", arrow=arrow(length=unit(0.3, "cm")))+
+  
+  scale_color_manual(name = "",labels = c("Observed diversity","Dark diversity"),values = c("#E69F00", "#56B4E9"))+
+  scale_fill_manual(name = "",labels = c("Observed diversity","Dark diversity"),values = c("#E69F00", "#56B4E9"))+
+  
+ theme(legend.position = c(.65,.9))+
+   theme_traits
+
+
+mean_t_pl <- plot_grid(NULL, cwm_sm_pca_p, NULL, cwm_sla_pca_p,
+                        ncol = 4, rel_widths = c(.1, .9,.1, .9),
+          labels = c('', 'A','', "B"))
+# Customized ylab
+mean_trait_p2 <- ggdraw(mean_t_pl) + 
+  draw_label("High SLA", x = 0.55, y = .832, angle = 90, size=16)+
+   draw_label("Low SLA", x = 0.55, y = .4, angle = 90, size=16)+
+  draw_label("Taller plants, heavier seeds, \n and low clonality", x = 0.02, y = .832, angle = 90, size=16)+
+  draw_label("Shorther plants, lighter seeds\n and high clonality", x = 0.02, y = .4, angle = 90, size=16)
+#ggsave(here("figures", "fig_mean_trait.png"), mean_trait_p2, height=10, width = 17, dpi=600)
+```
