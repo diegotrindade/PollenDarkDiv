@@ -407,7 +407,7 @@ div_fig <- plot_grid(taxonomic_plot, func_obsdark,
                      compl_pl,func_comp_pl,
           ncol = 2, nrow = 2, rel_widths = c(1,1),
           labels = c('A', 'B', "C", "D"))
-#ggsave(here("figures", "fig_pollen.png"), div_fig, height=14, width = 16, dpi=600)
+#ggsave(here("figures", "fig_pollen.pdf"), div_fig, height=14, width = 16, dpi=600)
 ```
 
 
@@ -494,5 +494,5 @@ mean_trait_p2 <- ggdraw(mean_t_pl) +
    draw_label("Low SLA", x = 0.55, y = .4, angle = 90, size=16)+
   draw_label("Taller plants, heavier seeds, \n and low clonality", x = 0.02, y = .832, angle = 90, size=16)+
   draw_label("Shorther plants, lighter seeds\n and high clonality", x = 0.02, y = .4, angle = 90, size=16)
-#ggsave(here("figures", "fig_mean_trait.png"), mean_trait_p2, height=10, width = 17, dpi=600)
+#ggsave(here("figures", "fig_mean_trait.pdf"), mean_trait_p2, height=10, width = 17, dpi=600)
 ```
