@@ -126,6 +126,7 @@ pool <- hyperg %>%
   select(-div) %>% 
   pivot_longer(-c(K_ID:time_window), names_to = "sp", values_to = "pool")
 ```
+
 ```{r comball}
 # Combining observed diversity, dark diversity and species pool size data frames
 comb_obs_dd <- obs %>% 
@@ -217,7 +218,9 @@ commData <- comm_df %>%
   filter(!div == "Pool")%>% 
   unite(row_numb,c("K_ID","ybp", "div"), sep = "_") %>% 
   column_to_rownames("row_numb")
+
 # TPDc
+
 tpd_c <- TPDc(TPDs = tpd_s, sampUnit = commData)
 #gc()
 #memory.limit(9999999999)
@@ -231,6 +234,7 @@ source(here("functions", "decompSpace.R"))
 
 #Warning! The following object 'obs_dark_tpd' is taking quite long to run. If you don't want to wait, skip this chunk and run the chunk below (functional_df.RDS) instead. ##
 ########################
+
 library(tictoc)
 
 tic()
@@ -244,6 +248,8 @@ library(reshape2)
 #separating overlap and unique functional space into different data frames
 overl<-melt(obs_dark_tpd$communities$Overlap)
 uniq <- melt(obs_dark_tpd$communities$Unique)
+
+
 #Overlap between functional observed and dark diversity
 over_df <- overl %>% drop_na() %>% 
   separate(Var1, c("K_ID","ybp","div"), "_", convert = TRUE) %>%
@@ -252,6 +258,8 @@ over_df <- overl %>% drop_na() %>%
   group_by(K_ID,ybp) %>% 
   filter(row_number()==1) %>% 
   ungroup
+
+
 #Unique portion of functional observed and dark diversity
 uniq_df <- uniq %>%
   separate(Var1, c("TDP_dissim","K_ID","ybp","div"), "_", convert = TRUE) %>%
@@ -261,6 +269,8 @@ uniq_df <- uniq %>%
           "K_ID==K_ID2") %>% 
   relocate(div, .after=TDP_dissim) %>% 
   arrange(desc(ybp), .by_group = TRUE)
+
+
 # Combining the unique portion of functional observed with the overlap, in order to get the total functional space of observed diversity
 uniq_obs <- uniq_df %>% select(-TDP_dissim, -TDP_dissim2, -div2, -K_ID2,-ybp2) %>% 
 filter(div=="Observed") %>%
@@ -275,17 +285,22 @@ uniq_dark <-uniq_df %>% dplyr::select(-TDP_dissim, -TDP_dissim2, -div2, -K_ID2,-
 filter(div=="Dark")%>% 
 rownames_to_column() %>% 
 pivot_wider(names_from = div, values_from=value) %>% select(-rowname)
+
+
 #Combining both functional observed and dark data frames and calculating the functional community completeness
+
 functional_df <- uniq_obs %>% ungroup %>% 
   left_join(uniq_dark, by=c("ybp", "K_ID")) %>% 
   mutate_all(~replace(., is.na(.), 0)) %>% 
   mutate(Pool = Observed+Dark,
     completeness=log(Observed/Dark))
+
 #saveRDS(functional_df, here("rds", "functional_df.RDS"))
 ```
 
 ```{r}
 # This .RDS file is a product of the chunk above ('functional-decomposition'), and stores the functional observed and dark diversity results.
+
 functional_df <- readRDS(here("rds", "functional_df.RDS"))
 ```
 
@@ -304,6 +319,7 @@ cwm_pca_t <- comm_df %>% filter(!div == "Pool") %>%
 
 
 # Figures
+
 ```{r}
 ### code to generate the annotations used in Fig. 2 and 3 ###
 source(here("functions", "annotations.R")) 

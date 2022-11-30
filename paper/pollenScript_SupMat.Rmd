@@ -35,12 +35,8 @@ comb_obs_dd <- readRDS(here("rds", "comb_obs_dd.RDS"))
 
 
 # Pollen data
-pollen <- read_delim(here("data", "pollen_raw2.csv"))
+pollen <- read_delim(here("data", "pollen_raw.csv"))
 
-dat.poll <- round(pollen[,-c(1:4)], digits = 0)
-dat.poll2 <- data.frame(pollen[,c(1:4)],dat.poll)
-
-write.csv(dat.poll2, here("data","pollen_raw2.csv"))
 tempCover<- pollen %>% 
 ggplot(aes(x = ybp, y = K_ID)) +
   geom_point(size=1) +
@@ -441,7 +437,7 @@ include_graphics(here("figures","FigSupplement", "freq_taxa.png"))
 
 # Code to generate the PCA figure
 
-att <- read.csv(here("data", "pollen_trait2.csv"), h=T, sep=",",row.names=NULL)
+att <- read.csv(here("data", "pollen_trait.csv"), h=T, sep=",",row.names=NULL)
 
 
 traitPollen <- att%>% 
